@@ -26,21 +26,25 @@ if ! grep -q "^APP_KEY=" .env || [ "$(grep "^APP_KEY=" .env | cut -d= -f2)" = ""
 fi
 
 print_step "3. Install Node Dependencies & Build"
-npm install
+npm ci
 npm run build
 
 print_step "4. Install tailwindcss native binding (Windows fix)"
 npm install @tailwindcss/oxide-win32-x64-msvc --no-save 2>/dev/null || true
 
-print_step "5. Run Database Migration & Seeder"
+print_step "5. Optimize for Production"
+php artisan storage:link --force 2>/dev/null || true
+php artisan optimize
+
+print_step "6. Run Database Migration & Seeder"
 php artisan migrate:fresh --seed --force
 
-print_step "6. Generate Application URL"
+print_step "7. Generate Application URL"
 APP_URL=$(grep "^APP_URL=" .env | cut -d= -f2)
 APP_URL="${APP_URL:-http://localhost}"
 echo "  => Application URL: $APP_URL"
 
-print_step "7. Start Development Server"
+print_step "8. Start Development Server"
 echo ""
 echo "  Application is running at: $APP_URL"
 echo "  Press Ctrl+C to stop."
