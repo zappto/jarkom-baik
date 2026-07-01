@@ -12,7 +12,11 @@ print_step() {
 }
 
 print_step "1. Install PHP Dependencies"
-composer install --no-interaction --prefer-dist
+composer install \
+    --no-dev \
+    --optimize-autoloader \
+    --no-interaction \
+    --prefer-dist
 
 print_step "2. Setup Environment"
 if [ ! -f .env ]; then
@@ -20,34 +24,40 @@ if [ ! -f .env ]; then
     echo "  => .env file created"
 fi
 
-if ! grep -q "^APP_KEY=" .env || [ "$(grep "^APP_KEY=" .env | cut -d= -f2)" = "" ]; then
+if ! grep -q "^APP_KEY=" .env || [ -z "$(grep "^APP_KEY=" .env | cut -d= -f2)" ]; then
     php artisan key:generate --force
     echo "  => APP_KEY generated"
 fi
 
-print_step "3. Install Node Dependencies & Build"
+print_step "3. Install Node Dependencies & Build Assets"
 npm ci
 npm run build
 
-print_step "4. Install tailwindcss native binding (Windows fix)"
-npm install @tailwindcss/oxide-win32-x64-msvc --no-save 2>/dev/null || true
-
-print_step "5. Optimize for Production"
+print_step "4. Laravel Optimization"
 php artisan storage:link --force 2>/dev/null || true
-php artisan optimize
 
-print_step "6. Run Database Migration & Seeder"
-php artisan migrate:fresh --seed --force
+php artisan optimize:clear
 
-print_step "7. Generate Application URL"
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+print_step "5. Database Migration"
+php artisan migrate --force
+
+print_step "6. Deployment Complete"
+
 APP_URL=$(grep "^APP_URL=" .env | cut -d= -f2)
 APP_URL="${APP_URL:-http://localhost}"
-echo "  => Application URL: $APP_URL"
 
-print_step "8. Start Development Server"
 echo ""
-echo "  Application is running at: $APP_URL"
-echo "  Press Ctrl+C to stop."
+echo "========================================"
+echo " Deployment Finished Successfully"
+echo "========================================"
 echo ""
-
-php artisan serve --host=0.0.0.0
+echo "Application URL : $APP_URL"
+echo ""
+echo "Make sure your Apache DocumentRoot points to:"
+echo "    $(pwd)/public"
+echo ""
+echo "Apache should now serve the application."
